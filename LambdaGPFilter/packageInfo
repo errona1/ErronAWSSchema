@@ -1,0 +1,5 @@
+base = {
+  workspace = errona_LambdaGPFilter; 
+  versionSet = live;
+};
+packages = { };
