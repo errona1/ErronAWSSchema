@@ -1,0 +1,760 @@
+{
+  "Description": "Cluster StartUp",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "Amazon MSK cluster configuration"
+          },
+          "Parameters": [
+            "VpcBastionStack",
+            "MSKKafkaVersion",
+            "TLSMutualAuthentication",
+            "PcaArn"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "VpcBastionStack": {
+          "default": "Name of the Bastion / Kafka client instance stack"
+        },
+        "MSKKafkaVersion": {
+          "default": "Apache Kafka version on the brokers"
+        },
+        "TLSMutualAuthentication": {
+          "default": "Whether TLS Mutual Auth should be enabled for the cluster"
+        },
+        "PcaArn": {
+          "default": "(Optional) ARN of the ACM Certificate Authority (for TLS Mutual Auth)"
+        }
+      }
+    }
+  },
+  "Parameters": {
+    "MSKKafkaVersion": {
+      "Type": "String",
+      "Default": "2.8.0",
+      "AllowedValues": [
+        "2.8.0",
+        "2.7.0",
+        "2.6.2",
+        "2.6.1",
+        "2.6.0",
+        "2.5.1",
+        "2.4.1.1",
+        "2.3.1",
+        "2.2.1"
+      ]
+    },
+    "TLSMutualAuthentication": {
+      "Type": "String",
+      "Default": "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ]
+    },
+    "PcaArn": {
+      "Type": "String",
+      "AllowedPattern": "arn:aws:acm-pca:[us\\-east\\-1|us\\-east\\-2|eu\\-west\\-1]{9}:\\d{12}:certificate-authority\\/[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}|^$",
+      "ConstraintDescription": "Not a valid ACM PCA ARN"
+    },
+    "VpcBastionStack": {
+      "Type": "String"
+    }
+  },
+  "Conditions": {
+    "MTLS": {
+      "Fn::Equals": [
+        {
+          "Ref": "TLSMutualAuthentication"
+        },
+        "true"
+      ]
+    },
+    "noMTLS": {
+      "Fn::Equals": [
+        {
+          "Ref": "TLSMutualAuthentication"
+        },
+        "false"
+      ]
+    },
+    "CDKMetadataAvailable": {
+      "Fn::Or": [
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "af-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ca-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-northwest-1"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-3"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "me-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "sa-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-2"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-west-2"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "MSKSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "MSK Security Group",
+        "SecurityGroupIngress": [
+          {
+            "Description": "ZooKeeper Plaintext",
+            "FromPort": 2181,
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-KafkaClientEC2InstanceSecurityGroupId"
+                  ]
+                ]
+              }
+            },
+            "ToPort": 2181
+          },
+          {
+            "Description": "Bootstrap servers Plaintext",
+            "FromPort": 9092,
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-KafkaClientEC2InstanceSecurityGroupId"
+                  ]
+                ]
+              }
+            },
+            "ToPort": 9092
+          },
+          {
+            "Description": "Bootstrap servers TLS",
+            "FromPort": 9094,
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-KafkaClientEC2InstanceSecurityGroupId"
+                  ]
+                ]
+              }
+            },
+            "ToPort": 9094
+          }
+        ],
+        "VpcId": {
+          "Fn::ImportValue": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Ref": "VpcBastionStack"
+                },
+                "-VPCID"
+              ]
+            ]
+          }
+        }
+      },
+      "Metadata": {
+        "cfn_nag": {
+          "rules_to_suppress": [
+            {
+              "id": "F1000",
+              "reason": "No egress rule defined as default (all traffic allowed outbound) is sufficient for this resource"
+            }
+          ]
+        }
+      }
+    },
+    "MSKSecurityGroup9092": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "Description": "Enable access to port 9092 inside the MSKSecurityGroup",
+        "FromPort": 9092,
+        "GroupId": {
+          "Fn::GetAtt": [
+            "MSKSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "MSKSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "ToPort": 9092
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/MSKSecurityGroup9092"
+      }
+    },
+    "MSKSecurityGroup9094": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "Description": "Enable access to port 9094 inside the MSKSecurityGroup",
+        "FromPort": 9094,
+        "GroupId": {
+          "Fn::GetAtt": [
+            "MSKSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "MSKSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "ToPort": 9094
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/MSKSecurityGroup9094"
+      }
+    },
+    "MSKClusterNoMTLS": {
+      "Type": "AWS::MSK::Cluster",
+      "Properties": {
+        "BrokerNodeGroupInfo": {
+          "ClientSubnets": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKOne"
+                  ]
+                ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKTwo"
+                  ]
+                ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKThree"
+                  ]
+                ]
+              }
+            }
+          ],
+          "InstanceType": "kafka.m5.large",
+          "SecurityGroups": [
+            {
+              "Fn::GetAtt": [
+                "MSKSecurityGroup",
+                "GroupId"
+              ]
+            }
+          ],
+          "StorageInfo": {
+            "EBSStorageInfo": {
+              "VolumeSize": 1000
+            }
+          }
+        },
+        "ClusterName": {
+          "Fn::Join": [
+            "",
+            [
+              "MSKCluster-",
+              {
+                "Ref": "AWS::StackName"
+              }
+            ]
+          ]
+        },
+        "KafkaVersion": {
+          "Ref": "MSKKafkaVersion"
+        },
+        "NumberOfBrokerNodes": 3,
+        "EncryptionInfo": {
+          "EncryptionInTransit": {
+            "ClientBroker": "TLS_PLAINTEXT",
+            "InCluster": true
+          }
+        },
+        "EnhancedMonitoring": "DEFAULT"
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/MSKClusterNoMTLS"
+      },
+      "Condition": "noMTLS"
+    },
+    "MSKClusterMTLS": {
+      "Type": "AWS::MSK::Cluster",
+      "Properties": {
+        "BrokerNodeGroupInfo": {
+          "ClientSubnets": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKOne"
+                  ]
+                ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKTwo"
+                  ]
+                ]
+              }
+            },
+            {
+              "Fn::ImportValue": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Ref": "VpcBastionStack"
+                    },
+                    "-PrivateSubnetMSKThree"
+                  ]
+                ]
+              }
+            }
+          ],
+          "InstanceType": "kafka.m5.large",
+          "SecurityGroups": [
+            {
+              "Fn::GetAtt": [
+                "MSKSecurityGroup",
+                "GroupId"
+              ]
+            }
+          ],
+          "StorageInfo": {
+            "EBSStorageInfo": {
+              "VolumeSize": 1000
+            }
+          }
+        },
+        "ClusterName": {
+          "Fn::Join": [
+            "",
+            [
+              "MSKCluster-",
+              {
+                "Ref": "AWS::StackName"
+              }
+            ]
+          ]
+        },
+        "KafkaVersion": {
+          "Ref": "MSKKafkaVersion"
+        },
+        "NumberOfBrokerNodes": 3,
+        "ClientAuthentication": {
+          "Tls": {
+            "CertificateAuthorityArnList": [
+              {
+                "Ref": "PcaArn"
+              }
+            ]
+          }
+        },
+        "EncryptionInfo": {
+          "EncryptionInTransit": {
+            "ClientBroker": "TLS_PLAINTEXT",
+            "InCluster": true
+          }
+        },
+        "EnhancedMonitoring": "DEFAULT"
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/MSKClusterMTLS"
+      },
+      "Condition": "MTLS"
+    },
+    "SolutionHelperRoleC017C62A": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":logs:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":",
+                        {
+                          "Ref": "AWS::AccountId"
+                        },
+                        ":log-group:/aws/lambda/*"
+                      ]
+                    ]
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "CloudWatchLogsPolicy"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/SolutionHelper/Role/Role/Resource"
+      }
+    },
+    "CDKMetadata": {
+      "Type": "AWS::CDK::Metadata",
+      "Properties": {
+        "Analytics": "v2:deflate64:H4sIAAAAAAAAA12O3UrEMBCFn2Xvp7N03b3wTikoXsgu3SeI6bRk2yQlM1Ek5N1NLKJ4dX7gcL4W70942D2oD270MO+T9oEwXUXpGbrRXVRQloRCDZ13gxHjHRTHEqKWWr+qdTVugkdmkrKcauiJfQyaoIss3v7G0f315yhrlAz1P5E+YCrllXQMRj6fg48r/C9e3BSIOYPlGSvVUh4KoFEWU++X7aNohkXZt0FheopOb9yj+/EZ+K5RFZnxmzxncH4gvPH+vT1ie8Lj7sbGNCE6MZaw3/QLgE2TSzMBAAA="
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-cluster/CDKMetadata/Default"
+      },
+      "Condition": "CDKMetadataAvailable"
+    }
+  },
+  "Outputs": {
+    "MSKSecurityGroupID": {
+      "Description": "ID of the security group for the MSK cluster",
+      "Value": {
+        "Fn::GetAtt": [
+          "MSKSecurityGroup",
+          "GroupId"
+        ]
+      }
+    },
+    "SSHKafkaClientEC2Instance": {
+      "Description": "SSH command for the EC2 instance",
+      "Value": {
+        "Fn::ImportValue": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VpcBastionStack"
+              },
+              "-SSHKafkaClientEC2Instance"
+            ]
+          ]
+        }
+      }
+    },
+    "KafkaClientEC2InstanceSecurityGroupId": {
+      "Description": "ID of the security group for the EC2 instance",
+      "Value": {
+        "Fn::ImportValue": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VpcBastionStack"
+              },
+              "-KafkaClientEC2InstanceSecurityGroupId"
+            ]
+          ]
+        }
+      }
+    },
+    "SchemaRegistryUrl": {
+      "Description": "Url for the Schema Registry",
+      "Value": {
+        "Fn::ImportValue": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "VpcBastionStack"
+              },
+              "-SchemaRegistryUrl"
+            ]
+          ]
+        }
+      }
+    },
+    "MSKClusterArn": {
+      "Description": "Arn for the MSK cluster",
+      "Value": {
+        "Fn::If": [
+          "MTLS",
+          {
+            "Ref": "MSKClusterMTLS"
+          },
+          {
+            "Ref": "MSKClusterNoMTLS"
+          }
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-MSKClusterArn"
+            ]
+          ]
+        }
+      }
+    },
+    "VPCStackName": {
+      "Description": "The name of the VPC Stack",
+      "Value": {
+        "Ref": "VpcBastionStack"
+      }
+    }
+  }
+}

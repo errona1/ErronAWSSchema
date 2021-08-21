@@ -1,0 +1,1082 @@
+{
+  "Description": "EC2 Connections",
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "Amazon EC2 client configuration"
+          },
+          "Parameters": [
+            "KeyPair",
+            "LatestAmiId",
+            "UserDataLocation",
+            "SetupScript",
+            "RoleName"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "KeyPair": {
+          "default": "Name of an existing key pair to enable SSH access to the instance"
+        },
+        "LatestAmiId": {
+          "default": "Amazon Machine Image for the instance"
+        },
+        "UserDataLocation": {
+          "default": "Git repository where the user data configuration is stored (default branch will be used)"
+        },
+        "SetupScript": {
+          "default": "Path of the shell script to be executed when the instance launches"
+        },
+        "RoleName": {
+          "default": "Name of an existing IAM role to associate with the instance"
+        }
+      }
+    }
+  },
+  "Parameters": {
+    "KeyPair": {
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "LatestAmiId": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+    },
+    "UserDataLocation": {
+      "Type": "String",
+      "Default": "https://github.com/errona1/ErronAWSSchema.git"
+    },
+    "SetupScript": {
+      "Type": "String",
+      "Default": "./setup.sh"
+    },
+    "RoleName": {
+      "Type": "String",
+      "AllowedPattern": ".+",
+      "ConstraintDescription": "Role name must not be empty"
+    }
+  },
+  "Mappings": {
+    "SubnetConfig": {
+      "VPC": {
+        "CIDR": "10.0.0.0/16"
+      },
+      "PublicOne": {
+        "CIDR": "10.0.0.0/24"
+      },
+      "PrivateSubnetMSKOne": {
+        "CIDR": "10.0.1.0/24"
+      },
+      "PrivateSubnetMSKTwo": {
+        "CIDR": "10.0.2.0/24"
+      },
+      "PrivateSubnetMSKThree": {
+        "CIDR": "10.0.3.0/24"
+      }
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "SubnetConfig",
+            "VPC",
+            "CIDR"
+          ]
+        },
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "MSKVPC"
+          }
+        ]
+      },
+      "Metadata": {
+        "cfn_nag": {
+          "rules_to_suppress": [
+            {
+              "id": "W60",
+              "reason": "No flow log required for this VPC"
+            }
+          ]
+        }
+      }
+    },
+    "PublicSubnetOne": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "SubnetConfig",
+            "PublicOne",
+            "CIDR"
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PublicSubnet"
+          }
+        ]
+      },
+      "Metadata": {
+        "cfn_nag": {
+          "rules_to_suppress": [
+            {
+              "id": "W33",
+              "reason": "This is a public subnet and MapPublicIpOnLaunch should be set to true"
+            }
+          ]
+        }
+      }
+    },
+    "PrivateSubnetMSKOne": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "SubnetConfig",
+            "PrivateSubnetMSKOne",
+            "CIDR"
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PrivateSubnetMSKOne"
+          }
+        ]
+      }
+    },
+    "PrivateSubnetMSKTwo": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "SubnetConfig",
+            "PrivateSubnetMSKTwo",
+            "CIDR"
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PrivateSubnetMSKTwo"
+          }
+        ]
+      }
+    },
+    "PrivateSubnetMSKThree": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "SubnetConfig",
+            "PrivateSubnetMSKThree",
+            "CIDR"
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            2,
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PrivateSubnetMSKThree"
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway"
+    },
+    "GatewayAttachement": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "NATEIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      },
+      "DependsOn": [
+        "GatewayAttachement"
+      ]
+    },
+    "NATGateway": {
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": "NATEIP.AllocationId"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnetOne"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ConfluentKafkaNATGateway"
+          }
+        ]
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      },
+      "DependsOn": [
+        "GatewayAttachement"
+      ]
+    },
+    "PublicSubnetOneRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnetOne"
+        }
+      }
+    },
+    "PrivateRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PrivateRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NATGateway"
+        }
+      }
+    },
+    "PrivateSubnetMSKOneRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnetMSKOne"
+        }
+      }
+    },
+    "PrivateSubnetMSKTwoRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnetMSKTwo"
+        }
+      }
+    },
+    "PrivateSubnetMSKThreeRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnetMSKThree"
+        }
+      }
+    },
+    "CustomResourceRole8E68276A": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":logs:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":",
+                        {
+                          "Ref": "AWS::AccountId"
+                        },
+                        ":log-group:/aws/lambda/*"
+                      ]
+                    ]
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "CloudWatchLogsPolicy"
+          },
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "iam:AddRoleToInstanceProfile",
+                    "iam:AttachRolePolicy",
+                    "iam:CreateInstanceProfile",
+                    "iam:CreateRole",
+                    "iam:GetInstanceProfile",
+                    "iam:GetRole",
+                    "iam:PassRole"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:",
+                          {
+                            "Ref": "AWS::Partition"
+                          },
+                          ":iam::",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":role/service-role/AWSCloud9SSMAccessRole"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:",
+                          {
+                            "Ref": "AWS::Partition"
+                          },
+                          ":iam::",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":instance-profile/cloud9/AWSCloud9SSMInstanceProfile"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "Cloud9IAM"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/CustomResourceRole/Role/Resource"
+      }
+    },
+    "CustomResource8CDCD7A7": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "solutions-${AWS::Region}"
+          },
+          "S3Key": "aws-streaming-data-solution-for-amazon-msk/v1.4.2/assetb2a30b489d0ed7a07287ca8c30356ec0f7f73b9edad4c4dea011a2a5888b7d10.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "CustomResourceRole8E68276A",
+            "Arn"
+          ]
+        },
+        "Description": "This function creates prerequisite resources for Cloud9 (such as IAM roles)",
+        "Environment": {
+          "Variables": {
+            "AWS_SDK_USER_AGENT": "{ \"user_agent_extra\": \"AwsSolution/SO0151labs/v1.4.2\" }"
+          }
+        },
+        "Handler": "lambda_function.handler",
+        "Runtime": "python3.8",
+        "Timeout": 60
+      },
+      "DependsOn": [
+        "CustomResourceRole8E68276A"
+      ],
+      "Metadata": {
+        "cfn_nag": {
+          "rules_to_suppress": [
+            {
+              "id": "W89",
+              "reason": "This function does not need to be deployed in a VPC"
+            },
+            {
+              "id": "W92",
+              "reason": "This function does not require reserved concurrency"
+            }
+          ]
+        }
+      }
+    },
+    "Cloud9Helper": {
+      "Type": "Custom::Cloud9Setup",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "CustomResource8CDCD7A7",
+            "Arn"
+          ]
+        }
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete",
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/Cloud9Helper/Default"
+      }
+    },
+    "Cloud9EC2": {
+      "Type": "AWS::Cloud9::EnvironmentEC2",
+      "Properties": {
+        "InstanceType": "m5.large",
+        "AutomaticStopTimeMinutes": 600,
+        "ConnectionType": "CONNECT_SSM",
+        "Description": "Cloud9 EC2 environment",
+        "ImageId": "amazonlinux-2-x86_64",
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-Cloud9EC2Bastion"
+            ]
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnetOne"
+        },
+        "Tags": [
+          {
+            "Key": "Purpose",
+            "Value": "Cloud9EC2BastionHostInstance"
+          }
+        ]
+      },
+      "DependsOn": [
+        "Cloud9Helper"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/Cloud9EC2"
+      }
+    },
+    "KafkaClientInstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "EC2 Client Security Group",
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": {
+              "Fn::FindInMap": [
+                "SubnetConfig",
+                "PublicOne",
+                "CIDR"
+              ]
+            },
+            "Description": "Enable SSH access via port 22 from VPC",
+            "FromPort": 22,
+            "IpProtocol": "tcp",
+            "ToPort": 22
+          }
+        ],
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      },
+      "Metadata": {
+        "cfn_nag": {
+          "rules_to_suppress": [
+            {
+              "id": "W9",
+              "reason": "Access is restricted to the public subnet where the Cloud9 environment is located"
+            },
+            {
+              "id": "F1000",
+              "reason": "No egress rule defined as default (all traffic allowed outbound) is sufficient for this resource"
+            }
+          ]
+        }
+      }
+    },
+    "KafkaClientInstanceSecurityGroup8081": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "IpProtocol": "tcp",
+        "Description": "Schema Registry access inside the security group",
+        "FromPort": 8081,
+        "GroupId": {
+          "Fn::GetAtt": [
+            "KafkaClientInstanceSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "KafkaClientInstanceSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "ToPort": 8081
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/KafkaClientInstanceSecurityGroup8081"
+      }
+    },
+    "EC2InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "RoleName"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/EC2InstanceProfile"
+      }
+    },
+    "KafkaClientEC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "IamInstanceProfile": {
+          "Ref": "EC2InstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "LatestAmiId"
+        },
+        "InstanceType": "m5.large",
+        "KeyName": {
+          "Ref": "KeyPair"
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "KafkaClientInstanceSecurityGroup",
+              "GroupId"
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Ref": "PrivateSubnetMSKOne"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "KafkaClientInstance"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\nyum install git -y\ncd /home && mkdir labs-resources\ngit clone ",
+                {
+                  "Ref": "UserDataLocation"
+                },
+                " labs-resources && cd $_\nchmod +x ",
+                {
+                  "Ref": "SetupScript"
+                },
+                " && ",
+                {
+                  "Ref": "SetupScript"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "DependsOn": [
+        "PrivateRoute"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/KafkaClientEC2Instance"
+      }
+    },
+    "CDKMetadata": {
+      "Type": "AWS::CDK::Metadata",
+      "Properties": {
+        "Analytics": "v2:deflate64:H4sIAAAAAAAAA2VQwW7CMAz9Fu5pEAwO3IYqhnrYVpVpd5O6LNA6VeKAUNV/X9KuY9JOfn5+iZ/fQm7Wcjl7hptLVHmZd8pYlN2BQV1EWlEOFhpktCI15Nh6xZF+hbbVdIrw3XPrWWydQw7PTpEu0BlvFYrUOzbNo63oLw5flpq1oV6o2viyMraB2CeaVO1LlEGUjVBEhx2qpewC+Zmn8YODPxIOhjIKHgPeA+MN7mLU/HRbDud8NUiDdJflsbzBX3FhPOMHHGv87R4LHsNwpVF68DiMUXmr+b63xrf/iIxOFp0b7TkGUtgLDY3sCjPtGes0zq2pdB1UNTTHEmT34klNyybcC/eUQIzbySH1MbxNDGtHV20NxVN36bLvBZmQ4tnNr4uVXKzlanZ2WifWE+sGZTHWb7mqaoYFAgAA"
+      },
+      "Metadata": {
+        "aws:cdk:path": "amazon-msk-labs-ec2-client/CDKMetadata/Default"
+      },
+      "Condition": "CDKMetadataAvailable"
+    }
+  },
+  "Outputs": {
+    "VPCId": {
+      "Description": "The ID of the VPC created",
+      "Value": {
+        "Ref": "VPC"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-VPCID"
+        }
+      }
+    },
+    "PublicSubnetOne": {
+      "Description": "The name of the public subnet created",
+      "Value": {
+        "Ref": "PublicSubnetOne"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnetOne"
+        }
+      }
+    },
+    "PrivateSubnetMSKOne": {
+      "Description": "The ID of private subnet one created",
+      "Value": {
+        "Ref": "PrivateSubnetMSKOne"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnetMSKOne"
+        }
+      }
+    },
+    "PrivateSubnetMSKTwo": {
+      "Description": "The ID of private subnet two created",
+      "Value": {
+        "Ref": "PrivateSubnetMSKTwo"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnetMSKTwo"
+        }
+      }
+    },
+    "PrivateSubnetMSKThree": {
+      "Description": "The ID of private subnet three created",
+      "Value": {
+        "Ref": "PrivateSubnetMSKThree"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnetMSKThree"
+        }
+      }
+    },
+    "VPCStackName": {
+      "Description": "The name of the VPC Stack",
+      "Value": {
+        "Ref": "AWS::StackName"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-VPCStackName"
+        }
+      }
+    },
+    "SSHKafkaClientEC2Instance": {
+      "Description": "SSH command for the EC2 instance",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "ssh -A ec2-user@",
+            {
+              "Fn::GetAtt": [
+                "KafkaClientEC2Instance",
+                "PrivateDnsName"
+              ]
+            }
+          ]
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-SSHKafkaClientEC2Instance"
+            ]
+          ]
+        }
+      }
+    },
+    "KafkaClientEC2InstancePrivateDNS": {
+      "Description": "The private DNS for the EC2 instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "KafkaClientEC2Instance",
+          "PrivateDnsName"
+        ]
+      }
+    },
+    "KafkaClientEC2InstanceSecurityGroupId": {
+      "Description": "ID of the security group for the EC2 instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "KafkaClientInstanceSecurityGroup",
+          "GroupId"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-KafkaClientEC2InstanceSecurityGroupId"
+            ]
+          ]
+        }
+      }
+    },
+    "SchemaRegistryUrl": {
+      "Description": "Url for the Schema Registry",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "http://",
+            {
+              "Fn::GetAtt": [
+                "KafkaClientEC2Instance",
+                "PrivateDnsName"
+              ]
+            },
+            ":8081"
+          ]
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "-SchemaRegistryUrl"
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "Conditions": {
+    "CDKMetadataAvailable": {
+      "Fn::Or": [
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "af-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ca-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-northwest-1"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-3"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "me-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "sa-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-2"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-west-2"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

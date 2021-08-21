@@ -1,2 +1,0 @@
-base = {workspace = errona_LambdaGPFilter; };
-packages = { };
